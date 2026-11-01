@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0e1116">
 <title>Rig Mixamo</title>
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 <script type="importmap">
 {
   "imports": {
@@ -75,9 +75,12 @@
       <p id="skInfo" class="hint"></p>
     </section>
 
-    <section class="card off">
-      <h2><span class="n">6</span>Poids <small>bientôt</small></h2>
-      <p class="hint">Transfert des poids depuis Kidas (4 influences max).</p>
+    <section class="card">
+      <h2><span class="n">6</span>Poids</h2>
+      <p class="hint">Transfert des poids de Kidas (4 influences max). Fais la réduction (étape 3) avant, puis vérifie avec la pose de test.</p>
+      <button id="wBuild" class="btn primary">Calculer les poids</button>
+      <label class="sl"><span>Pose de test (bras gauche, jambe droite) <b></b></span><input id="wPose" type="range" min="0" max="100" step="1" value="0" disabled></label>
+      <p id="wInfo" class="hint"></p>
     </section>
 
     <section class="card off">
@@ -101,6 +104,6 @@ setTimeout(function () {
   }
 }, 8000);
 </script>
-<script type="module" src="js/main.js?v=4"></script>
+<script type="module" src="js/main.js?v=5"></script>
 </body>
 </html>

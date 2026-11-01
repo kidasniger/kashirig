@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
-import { importFiles } from './loader.js?v=4';
-import { createViewer, buildGeometry } from './viewer.js?v=4';
-import { orient, autoYaw, normalize, weld, smoothNormals, checkTPose } from './geom.js?v=4';
-import { simplify } from './simplify.js?v=4';
-import { detectLandmarks } from './landmarks.js?v=4';
-import { loadRig, fitSkeleton } from './skeleton.js?v=4';
+import { importFiles } from './loader.js?v=5';
+import { createViewer, buildGeometry } from './viewer.js?v=5';
+import { orient, autoYaw, normalize, weld, smoothNormals, checkTPose } from './geom.js?v=5';
+import { simplify } from './simplify.js?v=5';
+import { detectLandmarks } from './landmarks.js?v=5';
+import { loadRig, fitSkeleton } from './skeleton.js?v=5';
+import { loadSkin, transferWeights } from './weights.js?v=5';
+import { buildSkinned, testPose } from './skinned.js?v=5';
 
 window.__booted = true;
 
@@ -13,7 +15,7 @@ const $ = id => document.getElementById(id);
 const fmt = n => Math.round(n).toLocaleString('fr-FR');
 const tick = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
 
-const state = { src: null, base: null, work: null, flip: false, rawHeight: 0, tpose: null, lm: null, rig: null, shoulder: null, showSkel: true };
+const state = { src: null, base: null, work: null, flip: false, rawHeight: 0, tpose: null, lm: null, rig: null, shoulder: null, showSkel: true, kskin: null, skinned: null };
 const viewer = createViewer($('view'));
 
 function status(msg, kind = 'info') {
@@ -25,7 +27,7 @@ window.addEventListener('error', e => status('Erreur : ' + (e.message || e.error
 window.addEventListener('unhandledrejection', e => status('Erreur : ' + ((e.reason && e.reason.message) || e.reason), 'err'));
 
 function lock(v) {
-  for (const id of ['reduce', 'download', 'flip', 'up', 'target']) $(id).disabled = v || (!state.base && id !== 'up');
+  for (const id of ['reduce', 'download', 'flip', 'up', 'target', 'wBuild']) $(id).disabled = v || (!state.base && id !== 'up');
   $('up').disabled = v;
 }
 
@@ -76,6 +78,7 @@ function syncSliders() {
 }
 
 function readSliders() {
+  clearSkin();
   const p = state.lm.pts, v = id => +$(id).value / 100;
   p.headTop[1] = v('lmHead'); p.neck[1] = v('lmNeck'); p.crotch[1] = v('lmCrotch');
   for (const [h, s] of [[p.handP, 1], [p.handN, -1]]) if (h) { h[0] = s * v('lmHandX'); h[1] = v('lmHandY'); }
@@ -95,14 +98,59 @@ function drawSkeleton() {
   $('skInfo').textContent = state.rig.bones.length + ' os posés sur le modèle.';
 }
 
-$('skShoulder').addEventListener('input', () => { state.shoulder = +$('skShoulder').value / 100; drawSkeleton(); });
+$('skShoulder').addEventListener('input', () => { clearSkin(); state.shoulder = +$('skShoulder').value / 100; drawSkeleton(); });
 $('skToggle').addEventListener('click', e => {
   state.showSkel = e.currentTarget.getAttribute('aria-pressed') !== 'true';
   e.currentTarget.setAttribute('aria-pressed', state.showSkel);
   viewer.setSkeletonVisible(state.showSkel);
 });
-loadRig('assets/kidas_rig.json?v=4').then(r => { state.rig = r; if (state.lm) drawSkeleton(); })
+loadRig('assets/kidas_rig.json?v=5').then(r => { state.rig = r; if (state.lm) drawSkeleton(); })
   .catch(err => status('Squelette indisponible : ' + (err.message || err), 'warn'));
+
+function clearSkin() {
+  if (!state.skinned) return;
+  state.skinned = null;
+  $('wPose').value = 0; $('wPose').disabled = true;
+  $('wInfo').textContent = 'Repères modifiés : recalcule les poids.';
+  render(); drawMarkers(); drawSkeleton();
+}
+
+$('wBuild').addEventListener('click', async () => {
+  if (!state.base || !state.rig || !state.lm) return;
+  lock(true);
+  status('Chargement des poids de Kidas…');
+  await tick();
+  try {
+    if (!state.kskin) state.kskin = await loadSkin('assets/kidas_skin.bin?v=5', state.rig.skinN);
+    const fitRes = fitSkeleton(state.rig, state.lm, state.shoulder);
+    if (!fitRes) throw new Error('Repères incomplets.');
+    status('Transfert des poids…');
+    await tick();
+    const t0 = performance.now();
+    const w = state.work;
+    const res = transferWeights(state.kskin, state.rig, fitRes.fit, w.pos);
+    const geom = buildGeometry({ pos: w.pos, uv: w.uv, index: w.index, normals: smoothNormals(w.pos, w.index) });
+    geom.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(res.skinIndex, 4));
+    geom.setAttribute('skinWeight', new THREE.Float32BufferAttribute(res.skinWeight, 4));
+    const sk = buildSkinned(state.rig, fitRes.pos, geom, state.src.material);
+    sk.mesh.name = state.src.name;
+    state.skinned = sk;
+    viewer.setObject(sk.mesh);
+    viewer.setSkeletonVisible(false);
+    viewer.setMarkers([]);
+    $('wPose').value = 0; $('wPose').disabled = false;
+    $('wInfo').textContent = fmt(w.pos.length / 3) + ' sommets, 4 influences max' + (res.far ? ' (' + res.far + ' sans voisin : liés au bassin)' : '') + '.';
+    status('Poids transférés en ' + ((performance.now() - t0) / 1000).toFixed(1) + ' s. Bouge le curseur de pose pour vérifier.', 'ok');
+  } catch (err) {
+    console.error(err);
+    status('Erreur de poids : ' + (err.message || err), 'err');
+  }
+  lock(false);
+});
+
+$('wPose').addEventListener('input', () => {
+  if (state.skinned) testPose(state.skinned.bones, state.rig, +$('wPose').value / 100);
+});
 
 function detect() {
   state.lm = detectLandmarks(state.base.pos);
@@ -117,9 +165,10 @@ function detect() {
 }
 
 for (const id of SL) $(id).addEventListener('input', () => { if (state.lm) readSliders(); });
-$('lmReset').addEventListener('click', () => { if (state.base) detect(); });
+$('lmReset').addEventListener('click', () => { if (state.base) { clearSkin(); detect(); } });
 
 async function prepare() {
+  state.skinned = null; $('wPose').disabled = true; $('wPose').value = 0; $('wInfo').textContent = '';
   const s = state.src;
   const pos = Float32Array.from(s.pos);
   orient(pos, $('up').value, false);
@@ -177,7 +226,10 @@ $('reduce').addEventListener('click', async () => {
   try {
     const r = await simplify(state.base, target);
     state.work = { pos: r.pos, uv: r.uv, index: r.index };
+    state.skinned = null; $('wPose').disabled = true; $('wPose').value = 0; $('wInfo').textContent = '';
     render();
+    drawMarkers();
+    drawSkeleton();
     status(r.after === r.before
       ? 'Déjà sous la cible (' + fmt(r.before) + ' triangles), rien à réduire.'
       : 'Réduit : ' + fmt(r.before) + ' → ' + fmt(r.after) + ' triangles' + (r.usedUV ? ' (UV préservées).' : ' (sans pondération UV).'), 'ok');
@@ -211,10 +263,17 @@ $('kidas').addEventListener('click', async e => {
 $('download').addEventListener('click', () => {
   if (!state.work) return;
   const w = state.work;
-  const mesh = new THREE.Mesh(
-    buildGeometry({ pos: w.pos, uv: w.uv, index: w.index, normals: smoothNormals(w.pos, w.index) }),
-    state.src.material);
-  mesh.name = state.src.name;
+  let mesh;
+  if (state.skinned) {
+    testPose(state.skinned.bones, state.rig, 0);
+    $('wPose').value = 0;
+    mesh = state.skinned.mesh;
+  } else {
+    mesh = new THREE.Mesh(
+      buildGeometry({ pos: w.pos, uv: w.uv, index: w.index, normals: smoothNormals(w.pos, w.index) }),
+      state.src.material);
+    mesh.name = state.src.name;
+  }
   const wasWire = state.src.material.wireframe;
   state.src.material.wireframe = false;
   status('Export GLB…');
@@ -223,7 +282,7 @@ $('download').addEventListener('click', () => {
     const blob = new Blob([result], { type: 'model/gltf-binary' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = state.src.name + '_' + Math.round(w.index.length / 3) + 'tri.glb';
+    a.download = state.src.name + '_' + Math.round(w.index.length / 3) + 'tri' + (state.skinned ? '_rig' : '') + '.glb';
     document.body.appendChild(a);
     a.click();
     a.remove();

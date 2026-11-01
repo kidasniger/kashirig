@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
-import { TARGET_HEIGHT } from './geom.js?v=4';
+import { TARGET_HEIGHT } from './geom.js?v=5';
 
 export function buildGeometry({ pos, uv, index, normals }) {
   const g = new THREE.BufferGeometry();
@@ -75,6 +75,12 @@ export function createViewer(canvas) {
       mesh = new THREE.Mesh(geometry, material);
       scene.add(mesh);
       if (first) frame();
+    },
+    // Remplace l'objet affiché (ex. un SkinnedMesh) sans le recréer.
+    setObject(obj) {
+      if (mesh) { scene.remove(mesh); if (mesh.geometry) mesh.geometry.dispose(); }
+      mesh = obj;
+      scene.add(obj);
     },
     setWireframe(v) {
       wire = v;

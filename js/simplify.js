@@ -1,6 +1,6 @@
 // Réduction de triangles avec meshoptimizer (WebAssembly).
 import { MeshoptSimplifier } from 'meshoptimizer';
-import { compact } from './geom.js?v=4';
+import { compact } from './geom.js?v=5';
 
 // data = { pos: Float32Array, uv: Float32Array|null, index: Uint32Array }
 export async function simplify(data, targetTris) {
