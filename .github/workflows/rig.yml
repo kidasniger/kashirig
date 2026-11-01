@@ -1,0 +1,47 @@
+name: Rig luw avec Blender
+
+on:
+  workflow_dispatch:
+    inputs:
+      glb:
+        description: "Chemin du GLB (ex: input/luw.glb)"
+        default: "input/luw.glb"
+      reference:
+        description: "FBX Mixamo de référence"
+        default: "assets/kidas.fbx"
+      triangles:
+        description: "Nombre de triangles cible"
+        default: "40000"
+
+jobs:
+  rig:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer Blender
+        run: |
+          sudo snap install blender --classic
+          blender --version
+
+      - name: Lancer le rig
+        shell: bash
+        env:
+          GLB: ${{ inputs.glb }}
+          REF: ${{ inputs.reference }}
+          TRIS: ${{ inputs.triangles }}
+        run: |
+          mkdir -p output
+          test -f "$GLB" || { echo "GLB introuvable : $GLB"; exit 1; }
+          test -f "$REF" || { echo "FBX de référence introuvable : $REF"; exit 1; }
+          blender -b --python-exit-code 1 -P blender/rig_luw.py -- \
+            "$GLB" "$REF" output/luw_rigged.fbx "$TRIS" 2>&1 | tee output/log.txt
+          test -s output/luw_rigged.fbx
+
+      - name: Publier le résultat
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: luw_rigged
+          path: output/
+          if-no-files-found: warn

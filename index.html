@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1116">
+<title>Rig Mixamo</title>
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+    "meshoptimizer": "https://cdn.jsdelivr.net/npm/meshoptimizer@0.20.0/meshopt_simplifier.module.js"
+  }
+}
+</script>
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <canvas id="view"></canvas>
+    <div class="tools">
+      <button id="wire" class="tool" aria-pressed="false">Filaire</button>
+      <button id="kidas" class="tool" aria-pressed="false">Kidas</button>
+    </div>
+  </div>
+
+  <div id="status" class="status info">Chargement…</div>
+
+  <main class="panel">
+    <section class="card">
+      <h2><span class="n">1</span>Importer</h2>
+      <label class="btn primary" for="file">Choisir le modèle (.fbx .obj .glb)</label>
+      <input id="file" type="file" multiple hidden>
+      <p class="hint">OBJ : sélectionne aussi le .mtl et la texture. Le modèle doit être en T-pose.</p>
+      <div class="row">
+        <label class="sel">Axe haut
+          <select id="up"><option value="Y">Y (défaut)</option><option value="Z">Z</option></select>
+        </label>
+        <button id="flip" class="btn">Tourner de 180°</button>
+      </div>
+      <div id="stats" class="grid"></div>
+    </section>
+
+    <section class="card">
+      <h2><span class="n">2</span>Contrôle T-pose</h2>
+      <div id="tpose"><p class="hint">En attente d'un modèle.</p></div>
+    </section>
+
+    <section class="card">
+      <h2><span class="n">3</span>Réduction</h2>
+      <p class="hint">Cible : <b id="targetVal"></b> triangles (Kidas : 50 000).</p>
+      <input id="target" type="range" min="5000" max="150000" step="1000" value="50000">
+      <button id="reduce" class="btn primary">Réduire</button>
+    </section>
+
+    <section class="card off">
+      <h2><span class="n">4</span>Rig Mixamo <small>bientôt</small></h2>
+      <p class="hint">Pose des 65 os de Kidas et transfert des poids.</p>
+    </section>
+
+    <section class="card off">
+      <h2><span class="n">5</span>Animations <small>bientôt</small></h2>
+      <p class="hint">Test avec les animations sans skin du dossier <code>anim/</code>.</p>
+    </section>
+
+    <section class="card">
+      <h2><span class="n">6</span>Télécharger</h2>
+      <button id="download" class="btn primary">Télécharger en GLB</button>
+    </section>
+  </main>
+</div>
+
+<script>
+setTimeout(function () {
+  if (!window.__booted) {
+    var s = document.getElementById('status');
+    s.textContent = 'Erreur : bibliothèques three.js / meshoptimizer non chargées (réseau ou CDN). Recharge la page.';
+    s.className = 'status err';
+  }
+}, 8000);
+</script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
