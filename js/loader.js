@@ -6,6 +6,7 @@ import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const MODEL = /\.(glb|gltf|fbx|obj)$/i;
+const MAX_BYTES = 200 * 1024 * 1024; // même limite que l'envoi (api/upload.js)
 
 function toStandard(src) {
   const m = Array.isArray(src) ? src[0] : src;
@@ -22,6 +23,8 @@ export async function importFiles(fileList) {
   const files = [...fileList];
   const main = files.find(f => MODEL.test(f.name));
   if (!main) throw new Error('Aucun fichier .fbx, .obj, .glb ou .gltf dans la sélection.');
+  const total = files.reduce((n, f) => n + f.size, 0);
+  if (total > MAX_BYTES) throw new Error('Fichier trop gros : ' + Math.round(total / 1048576) + ' Mo (200 Mo maximum).');
 
   const urls = new Map(files.map(f => [f.name.toLowerCase(), URL.createObjectURL(f)]));
   const manager = new THREE.LoadingManager();
