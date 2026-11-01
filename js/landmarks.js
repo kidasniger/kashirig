@@ -77,8 +77,17 @@ export function detectLandmarks(pos) {
     return c ? [s * m, sy / c, sz / c] : null;
   }
 
+  // Centre de profondeur du tronc (milieu entre percentiles 5 % et 95 % de z, de 55 % à 75 % de la taille)
+  const tz = [];
+  for (let i = 0; i < pos.length; i += 3) {
+    const y = pos[i + 1];
+    if (y > 0.55 * H && y < 0.75 * H && Math.abs(pos[i]) < 0.2) tz.push(pos[i + 2]);
+  }
+  tz.sort((a, b) => a - b);
+  const zc = tz.length ? (pct(tz, 0.05) + pct(tz, 0.95)) / 2 : 0;
+
   return {
-    height: H, front, crotchFound: found, n,
+    height: H, front, crotchFound: found, n, zc,
     pts: {
       headTop: [0, headTop, 0],
       neck: [0, neck, 0],

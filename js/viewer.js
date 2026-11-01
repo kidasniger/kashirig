@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
-import { TARGET_HEIGHT } from './geom.js?v=3';
+import { TARGET_HEIGHT } from './geom.js?v=4';
 
 export function buildGeometry({ pos, uv, index, normals }) {
   const g = new THREE.BufferGeometry();
@@ -35,6 +35,8 @@ export function createViewer(canvas) {
   let mesh = null, kidas = null, skel = null, wire = false;
   const markers = new THREE.Group();
   scene.add(markers);
+  const skelGroup = new THREE.Group();
+  scene.add(skelGroup);
 
   function resize() {
     const r = canvas.parentElement.getBoundingClientRect();
@@ -102,6 +104,27 @@ export function createViewer(canvas) {
         add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.5 })));
       }
     },
+    // Squelette recalé : rig.bones (parent p) + positions (Float32Array x,y,z par os).
+    setSkeleton(rig, pos) {
+      for (const c of [...skelGroup.children]) {
+        skelGroup.remove(c); c.geometry.dispose(); c.material.dispose();
+      }
+      if (!rig || !pos) return;
+      const seg = [];
+      rig.bones.forEach((b, i) => {
+        if (b.p < 0) return;
+        seg.push(pos[b.p * 3], pos[b.p * 3 + 1], pos[b.p * 3 + 2], pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
+      });
+      const lg = new THREE.BufferGeometry();
+      lg.setAttribute('position', new THREE.Float32BufferAttribute(seg, 3));
+      const lines = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x39d0ff, depthTest: false, transparent: true }));
+      const pg = new THREE.BufferGeometry();
+      pg.setAttribute('position', new THREE.Float32BufferAttribute(Array.from(pos), 3));
+      const pts = new THREE.Points(pg, new THREE.PointsMaterial({ color: 0xffffff, size: 4, sizeAttenuation: false, depthTest: false, transparent: true }));
+      lines.renderOrder = pts.renderOrder = 998;
+      skelGroup.add(lines, pts);
+    },
+    setSkeletonVisible(on) { skelGroup.visible = on; },
     async showKidas(url) {
       if (kidas) { kidas.visible = true; skel.visible = true; frame(); return this.kidasInfo; }
       const fbx = await new Promise((ok, ko) =>

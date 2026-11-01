@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
-import { importFiles } from './loader.js?v=3';
-import { createViewer, buildGeometry } from './viewer.js?v=3';
-import { orient, autoYaw, normalize, weld, smoothNormals, checkTPose } from './geom.js?v=3';
-import { simplify } from './simplify.js?v=3';
-import { detectLandmarks } from './landmarks.js?v=3';
+import { importFiles } from './loader.js?v=4';
+import { createViewer, buildGeometry } from './viewer.js?v=4';
+import { orient, autoYaw, normalize, weld, smoothNormals, checkTPose } from './geom.js?v=4';
+import { simplify } from './simplify.js?v=4';
+import { detectLandmarks } from './landmarks.js?v=4';
+import { loadRig, fitSkeleton } from './skeleton.js?v=4';
 
 window.__booted = true;
 
@@ -12,7 +13,7 @@ const $ = id => document.getElementById(id);
 const fmt = n => Math.round(n).toLocaleString('fr-FR');
 const tick = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
 
-const state = { src: null, base: null, work: null, flip: false, rawHeight: 0, tpose: null, lm: null };
+const state = { src: null, base: null, work: null, flip: false, rawHeight: 0, tpose: null, lm: null, rig: null, shoulder: null, showSkel: true };
 const viewer = createViewer($('view'));
 
 function status(msg, kind = 'info') {
@@ -80,13 +81,36 @@ function readSliders() {
   for (const [h, s] of [[p.handP, 1], [p.handN, -1]]) if (h) { h[0] = s * v('lmHandX'); h[1] = v('lmHandY'); }
   for (const id of SL) $(id + 'V').textContent = Math.round(+$(id).value) + ' cm';
   drawMarkers();
+  drawSkeleton();
 }
+
+function drawSkeleton() {
+  if (!state.rig || !state.lm) return;
+  const r = fitSkeleton(state.rig, state.lm, state.shoulder);
+  if (!r) { viewer.setSkeleton(null); $('skInfo').textContent = 'Repères incomplets : squelette non posé.'; return; }
+  viewer.setSkeleton(state.rig, r.pos);
+  viewer.setSkeletonVisible(state.showSkel);
+  $('skShoulder').value = (r.shoulderX * 100).toFixed(1);
+  $('skShoulderV').textContent = Math.round(r.shoulderX * 100) + ' cm';
+  $('skInfo').textContent = state.rig.bones.length + ' os posés sur le modèle.';
+}
+
+$('skShoulder').addEventListener('input', () => { state.shoulder = +$('skShoulder').value / 100; drawSkeleton(); });
+$('skToggle').addEventListener('click', e => {
+  state.showSkel = e.currentTarget.getAttribute('aria-pressed') !== 'true';
+  e.currentTarget.setAttribute('aria-pressed', state.showSkel);
+  viewer.setSkeletonVisible(state.showSkel);
+});
+loadRig('assets/kidas_rig.json?v=4').then(r => { state.rig = r; if (state.lm) drawSkeleton(); })
+  .catch(err => status('Squelette indisponible : ' + (err.message || err), 'warn'));
 
 function detect() {
   state.lm = detectLandmarks(state.base.pos);
   state.lmAuto = JSON.parse(JSON.stringify(state.lm.pts));
   syncSliders();
   drawMarkers();
+  state.shoulder = null;
+  drawSkeleton();
   const l = state.lm;
   $('lmInfo').textContent = 'Détection automatique' + (l.crotchFound ? '' : ' (entrejambe estimé, à vérifier)') +
     ' · face orientée comme Kidas.';
