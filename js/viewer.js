@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
-import { TARGET_HEIGHT } from './geom.js';
+import { TARGET_HEIGHT } from './geom.js?v=3';
 
 export function buildGeometry({ pos, uv, index, normals }) {
   const g = new THREE.BufferGeometry();

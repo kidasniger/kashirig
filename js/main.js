@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
-import { importFiles } from './loader.js';
-import { createViewer, buildGeometry } from './viewer.js';
-import { orient, autoYaw, normalize, weld, smoothNormals, checkTPose } from './geom.js';
-import { simplify } from './simplify.js';
-import { detectLandmarks } from './landmarks.js';
+import { importFiles } from './loader.js?v=3';
+import { createViewer, buildGeometry } from './viewer.js?v=3';
+import { orient, autoYaw, normalize, weld, smoothNormals, checkTPose } from './geom.js?v=3';
+import { simplify } from './simplify.js?v=3';
+import { detectLandmarks } from './landmarks.js?v=3';
 
 window.__booted = true;
 
@@ -89,7 +89,7 @@ function detect() {
   drawMarkers();
   const l = state.lm;
   $('lmInfo').textContent = 'Détection automatique' + (l.crotchFound ? '' : ' (entrejambe estimé, à vérifier)') +
-    ' · face vers ' + (l.front > 0 ? '+Z' : '−Z') + '.';
+    ' · face orientée comme Kidas.';
 }
 
 for (const id of SL) $(id).addEventListener('input', () => { if (state.lm) readSliders(); });
@@ -98,13 +98,18 @@ $('lmReset').addEventListener('click', () => { if (state.base) detect(); });
 async function prepare() {
   const s = state.src;
   const pos = Float32Array.from(s.pos);
-  orient(pos, $('up').value, state.flip);
+  orient(pos, $('up').value, false);
   state.yawed = autoYaw(pos);
   state.rawHeight = normalize(pos).rawHeight;
   await tick();
   const base = weld(pos, s.uv, s.index);
   state.base = base;
   state.work = base;
+  // Oriente le modèle face à +Z (comme Kidas) ; « Tourner de 180° » inverse ce choix.
+  const want = state.flip ? -1 : 1;
+  if (detectLandmarks(base.pos).front !== want) {
+    for (let i = 0; i < base.pos.length; i += 3) { base.pos[i] = -base.pos[i]; base.pos[i + 2] = -base.pos[i + 2]; }
+  }
   state.tpose = checkTPose(base.pos);
   render();
   detect();

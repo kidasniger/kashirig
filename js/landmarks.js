@@ -22,7 +22,7 @@ export function detectLandmarks(pos) {
     const b = Math.floor(pos[i + 1] / BIN);
     xs[b].push(x); zs[b].push(pos[i + 2]);
   }
-  const ext = a => { if (a.length < 20) return null; a.sort(); return pct(a, 0.95) - pct(a, 0.05); };
+  const ext = a => { if (a.length < 20) return null; a.sort((p, q) => p - q); return pct(a, 0.95) - pct(a, 0.05); };
 
   // Cou : minimum de largeur (x + z) entre 80 % et 92 % de la taille
   const prof = [];
