@@ -25,6 +25,19 @@ export function orient(pos, up = 'Y', flip = false) {
   }
 }
 
+// Si les bras sont portés par l'axe Z (modèle tourné de 90°), pivote autour de Y
+// pour les ramener sur X. Retourne true si une rotation a été faite.
+export function autoYaw(pos) {
+  const b = bounds(pos);
+  const W = b.maxX - b.minX, D = b.maxZ - b.minZ;
+  if (D <= W * 1.3) return false;
+  for (let i = 0; i < pos.length; i += 3) {
+    const x = pos[i], z = pos[i + 2];
+    pos[i] = z; pos[i + 2] = -x;
+  }
+  return true;
+}
+
 // Met à l'échelle (hauteur = targetH), pieds à y = 0, centré en x et z.
 export function normalize(pos, targetH = TARGET_HEIGHT) {
   const b = bounds(pos);

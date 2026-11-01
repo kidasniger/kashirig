@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { importFiles } from './loader.js';
 import { createViewer, buildGeometry } from './viewer.js';
-import { orient, normalize, weld, smoothNormals, checkTPose } from './geom.js';
+import { orient, autoYaw, normalize, weld, smoothNormals, checkTPose } from './geom.js';
 import { simplify } from './simplify.js';
 
 window.__booted = true;
@@ -55,6 +55,7 @@ async function prepare() {
   const s = state.src;
   const pos = Float32Array.from(s.pos);
   orient(pos, $('up').value, state.flip);
+  state.yawed = autoYaw(pos);
   state.rawHeight = normalize(pos).rawHeight;
   await tick();
   const base = weld(pos, s.uv, s.index);
@@ -64,7 +65,7 @@ async function prepare() {
   render();
   lock(false);
   const t = state.tpose;
-  status(t.ok ? 'Modèle prêt (' + fmt(base.index.length / 3) + ' triangles, T-pose OK).'
+  status(t.ok ? 'Modèle prêt (' + fmt(base.index.length / 3) + ' triangles, T-pose OK' + (state.yawed ? ', tourné de 90° automatiquement' : '') + ').'
               : 'Modèle chargé, mais la T-pose n\'est pas valide : voir étape 2.', t.ok ? 'ok' : 'warn');
 }
 
