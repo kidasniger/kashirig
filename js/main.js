@@ -9,6 +9,7 @@ import { loadRig, fitSkeleton } from './skeleton.js?v=6';
 import { loadSkin, transferWeights } from './weights.js?v=6';
 import { buildSkinned, testPose } from './skinned.js?v=6';
 import { loadClip, makeClip } from './anim.js?v=6';
+import { exportFbx } from './fbx.js?v=7';
 
 window.__booted = true;
 
@@ -29,7 +30,7 @@ window.addEventListener('error', e => status('Erreur : ' + (e.message || e.error
 window.addEventListener('unhandledrejection', e => status('Erreur : ' + ((e.reason && e.reason.message) || e.reason), 'err'));
 
 function lock(v) {
-  for (const id of ['reduce', 'download', 'flip', 'up', 'target', 'wBuild']) $(id).disabled = v || (!state.base && id !== 'up');
+  for (const id of ['reduce', 'download', 'fbx', 'flip', 'up', 'target', 'wBuild']) $(id).disabled = v || (!state.base && id !== 'up');
   $('up').disabled = v;
 }
 
@@ -371,6 +372,54 @@ $('download').addEventListener('click', () => {
     state.src.material.wireframe = wasWire;
     status('Erreur d\'export : ' + (err.message || err), 'err');
   }, { binary: true });
+});
+
+// ---- Export FBX via GitHub Actions (intermédiaire Vercel) ----
+const prog = { shown: 0, target: 0, label: '', raf: 0 };
+function progLoop() {
+  prog.shown += Math.max(0.05, (prog.target - prog.shown) * 0.05);
+  if (prog.shown > prog.target) prog.shown = prog.target;
+  $('fbxFill').style.width = prog.shown + '%';
+  $('fbxInfo').textContent = prog.label + ' ' + Math.floor(prog.shown) + ' %';
+  prog.raf = requestAnimationFrame(progLoop);
+}
+
+$('fbx').addEventListener('click', async () => {
+  if (!state.work) return;
+  const w = state.work;
+  const btn = $('fbx');
+  btn.disabled = true;
+  $('fbxBar').hidden = false;
+  prog.shown = 0; prog.target = 1; prog.label = 'Préparation';
+  cancelAnimationFrame(prog.raf);
+  progLoop();
+  const wasWire = state.src.material.wireframe;
+  try {
+    // Blender refait le rig lui-même : on envoie le modèle réduit, sans squelette.
+    const mesh = new THREE.Mesh(
+      buildGeometry({ pos: w.pos, uv: w.uv, index: w.index, normals: smoothNormals(w.pos, w.index) }),
+      state.src.material);
+    mesh.name = state.src.name;
+    state.src.material.wireframe = false;
+    const glb = await new Promise((ok, ko) => new GLTFExporter().parse(mesh, ok, ko, { binary: true }));
+    state.src.material.wireframe = wasWire;
+    status('Export FBX en cours…');
+    const url = await exportFbx(glb, Math.round(w.index.length / 3), (p, label) => { prog.target = p; prog.label = label; });
+    prog.target = 100; prog.label = 'Terminé';
+    await new Promise(r => setTimeout(r, 1200));
+    const a = document.createElement('a');
+    a.href = url;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    status('FBX prêt : le zip téléchargé contient rigged.fbx.', 'ok');
+  } catch (err) {
+    state.src.material.wireframe = wasWire;
+    status('Erreur FBX : ' + (err.message || err), 'err');
+  } finally {
+    cancelAnimationFrame(prog.raf);
+    btn.disabled = !state.base;
+  }
 });
 
 lock(true);
