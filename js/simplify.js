@@ -13,7 +13,8 @@ export async function simplify(data, targetTris) {
   let res = null, usedUV = false;
   if (data.uv && typeof MeshoptSimplifier.simplifyWithAttributes === 'function') {
     try {
-      res = MeshoptSimplifier.simplifyWithAttributes(data.index, data.pos, 3, data.uv, 2, [1, 1], null, target, 0.2, []);
+      // meshoptimizer 0.20.0 : pas de paramètre vertex_lock
+      res = MeshoptSimplifier.simplifyWithAttributes(data.index, data.pos, 3, data.uv, 2, [1, 1], target, 0.2, []);
       usedUV = true;
     } catch (e) {
       console.warn('simplifyWithAttributes indisponible, repli sans UV :', e);
