@@ -12,6 +12,7 @@ export function buildSkinned(rig, pos, geometry, material) {
     const L = b.p < 0 ? W[i].clone() : W[b.p].clone().invert().multiply(W[i]);
     L.decompose(bones[i].position, bones[i].quaternion, bones[i].scale);
     bones[i].userData.q0 = bones[i].quaternion.clone();
+    bones[i].userData.p0 = bones[i].position.clone();
     if (b.p >= 0) bones[b.p].add(bones[i]);
   });
   const mesh = new THREE.SkinnedMesh(geometry, material);
@@ -34,7 +35,7 @@ function rotateWorld(bones, rig, name, axis, angle) {
 
 // a de 0 à 1 : lève le bras gauche (80°) et la jambe droite vers l'avant (50°).
 export function testPose(bones, rig, a) {
-  for (const b of bones) b.quaternion.copy(b.userData.q0);
+  for (const b of bones) { b.quaternion.copy(b.userData.q0); b.position.copy(b.userData.p0); }
   if (a <= 0) return;
   rotateWorld(bones, rig, 'LeftArm', new THREE.Vector3(0, 0, 1), a * 80 * Math.PI / 180);
   rotateWorld(bones, rig, 'RightUpLeg', new THREE.Vector3(1, 0, 0), -a * 50 * Math.PI / 180);

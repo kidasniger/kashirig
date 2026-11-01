@@ -1,0 +1,6 @@
+[
+  { "name": "Idle", "file": "Idle.fbx" },
+  { "name": "Marche", "file": "Walking.fbx" },
+  { "name": "Course", "file": "Running.fbx" },
+  { "name": "Saut", "file": "Jump.fbx" }
+]

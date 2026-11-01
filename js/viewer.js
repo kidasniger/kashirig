@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
-import { TARGET_HEIGHT } from './geom.js?v=5';
+import { TARGET_HEIGHT } from './geom.js?v=6';
 
 export function buildGeometry({ pos, uv, index, normals }) {
   const g = new THREE.BufferGeometry();
@@ -62,7 +62,11 @@ export function createViewer(canvas) {
     controls.update();
   }
 
+  const clock = new THREE.Clock();
+  let tickFn = null;
   renderer.setAnimationLoop(() => {
+    const dt = clock.getDelta();
+    if (tickFn) tickFn(dt);
     controls.update();
     renderer.render(scene, camera);
   });
@@ -76,6 +80,7 @@ export function createViewer(canvas) {
       scene.add(mesh);
       if (first) frame();
     },
+    setTick(fn) { tickFn = fn; },
     // Remplace l'objet affiché (ex. un SkinnedMesh) sans le recréer.
     setObject(obj) {
       if (mesh) { scene.remove(mesh); if (mesh.geometry) mesh.geometry.dispose(); }

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0e1116">
 <title>Rig Mixamo</title>
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=6">
 <script type="importmap">
 {
   "imports": {
@@ -83,9 +83,21 @@
       <p id="wInfo" class="hint"></p>
     </section>
 
-    <section class="card off">
-      <h2><span class="n">7</span>Animations <small>bientôt</small></h2>
-      <p class="hint">Test avec les animations sans skin du dossier <code>anim/</code>.</p>
+    <section class="card">
+      <h2><span class="n">7</span>Animations</h2>
+      <p class="hint">Animations Mixamo « sans skin » du dossier <code>anim/</code>, jouées sur ton modèle riggé.</p>
+      <div class="row">
+        <label class="sel">Animation
+          <select id="anSel" disabled><option value="">Choisir…</option></select>
+        </label>
+        <button id="anPlay" class="btn" disabled>Lecture</button>
+      </div>
+      <div class="row">
+        <button id="anRoot" class="btn" aria-pressed="true" disabled>Sur place</button>
+        <label class="btn" for="anFile">Ouvrir un .fbx</label>
+      </div>
+      <input id="anFile" type="file" accept=".fbx" hidden>
+      <p id="anInfo" class="hint">Calcule d'abord les poids (étape 6).</p>
     </section>
 
     <section class="card">
@@ -104,6 +116,6 @@ setTimeout(function () {
   }
 }, 8000);
 </script>
-<script type="module" src="js/main.js?v=5"></script>
+<script type="module" src="js/main.js?v=6"></script>
 </body>
 </html>

@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
-import { importFiles } from './loader.js?v=5';
-import { createViewer, buildGeometry } from './viewer.js?v=5';
-import { orient, autoYaw, normalize, weld, smoothNormals, checkTPose } from './geom.js?v=5';
-import { simplify } from './simplify.js?v=5';
-import { detectLandmarks } from './landmarks.js?v=5';
-import { loadRig, fitSkeleton } from './skeleton.js?v=5';
-import { loadSkin, transferWeights } from './weights.js?v=5';
-import { buildSkinned, testPose } from './skinned.js?v=5';
+import { importFiles } from './loader.js?v=6';
+import { createViewer, buildGeometry } from './viewer.js?v=6';
+import { orient, autoYaw, normalize, weld, smoothNormals, checkTPose } from './geom.js?v=6';
+import { simplify } from './simplify.js?v=6';
+import { detectLandmarks } from './landmarks.js?v=6';
+import { loadRig, fitSkeleton } from './skeleton.js?v=6';
+import { loadSkin, transferWeights } from './weights.js?v=6';
+import { buildSkinned, testPose } from './skinned.js?v=6';
+import { loadClip, makeClip } from './anim.js?v=6';
 
 window.__booted = true;
 
@@ -15,7 +16,8 @@ const $ = id => document.getElementById(id);
 const fmt = n => Math.round(n).toLocaleString('fr-FR');
 const tick = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
 
-const state = { src: null, base: null, work: null, flip: false, rawHeight: 0, tpose: null, lm: null, rig: null, shoulder: null, showSkel: true, kskin: null, skinned: null };
+const state = { src: null, base: null, work: null, flip: false, rawHeight: 0, tpose: null, lm: null, rig: null, shoulder: null, showSkel: true, kskin: null, skinned: null,
+  anims: [], mixer: null, action: null, current: null, inPlace: true };
 const viewer = createViewer($('view'));
 
 function status(msg, kind = 'info') {
@@ -104,12 +106,85 @@ $('skToggle').addEventListener('click', e => {
   e.currentTarget.setAttribute('aria-pressed', state.showSkel);
   viewer.setSkeletonVisible(state.showSkel);
 });
-loadRig('assets/kidas_rig.json?v=5').then(r => { state.rig = r; if (state.lm) drawSkeleton(); })
+loadRig('assets/kidas_rig.json?v=6').then(r => { state.rig = r; if (state.lm) drawSkeleton(); })
   .catch(err => status('Squelette indisponible : ' + (err.message || err), 'warn'));
+
+function stopAnim() {
+  if (state.mixer) {
+    state.mixer.stopAllAction();
+    if (state.skinned) state.mixer.uncacheRoot(state.skinned.mesh);
+  }
+  state.mixer = null; state.action = null;
+  viewer.setTick(null);
+  if (state.skinned) testPose(state.skinned.bones, state.rig, 0);
+  $('anPlay').textContent = 'Lecture';
+}
+
+function setAnimUI(on) {
+  for (const id of ['anSel', 'anPlay', 'anRoot']) $(id).disabled = !on;
+  $('anInfo').textContent = on ? '' : 'Calcule d\'abord les poids (étape 6).';
+  if (!on) { $('anSel').value = ''; }
+}
+
+async function playAnim(entry) {
+  if (!state.skinned) return;
+  stopAnim();
+  status('Chargement de l\'animation…');
+  try {
+    if (!entry.src) entry.src = await loadClip(entry.url || entry.buffer);
+    const clip = makeClip(entry.src, state.rig, state.skinned.bones, state.inPlace);
+    state.mixer = new THREE.AnimationMixer(state.skinned.mesh);
+    state.action = state.mixer.clipAction(clip);
+    state.action.play();
+    state.current = entry;
+    viewer.setTick(dt => { if (state.mixer) state.mixer.update(dt); });
+    $('anPlay').textContent = 'Pause';
+    status('Animation « ' + entry.name + ' » (' + clip.tracks.length + ' pistes, ' + clip.duration.toFixed(1) + ' s).', 'ok');
+  } catch (err) {
+    console.error(err);
+    status('Erreur d\'animation : ' + (err.message || err), 'err');
+  }
+}
+
+function fillAnims() {
+  $('anSel').innerHTML = '<option value="">Choisir…</option>' + state.anims.map((a, i) => '<option value="' + i + '">' + a.name + '</option>').join('');
+}
+
+fetch('anim/index.json?v=6').then(r => r.json()).then(list => {
+  state.anims = list.map(a => ({ name: a.name, url: 'anim/' + a.file + '?v=6' }));
+  fillAnims(); setAnimUI(!!state.skinned);
+}).catch(() => { $('anInfo').textContent = 'anim/index.json introuvable : utilise « Ouvrir une animation ».'; });
+
+$('anSel').addEventListener('change', () => {
+  const v = $('anSel').value;
+  if (v === '') { stopAnim(); return; }
+  playAnim(state.anims[+v]);
+});
+$('anPlay').addEventListener('click', () => {
+  if (!state.action) { if (state.current) playAnim(state.current); return; }
+  state.action.paused = !state.action.paused;
+  $('anPlay').textContent = state.action.paused ? 'Lecture' : 'Pause';
+});
+$('anRoot').addEventListener('click', e => {
+  state.inPlace = e.currentTarget.getAttribute('aria-pressed') !== 'true';
+  e.currentTarget.setAttribute('aria-pressed', state.inPlace);
+  e.currentTarget.textContent = state.inPlace ? 'Sur place' : 'Avec déplacement';
+  if (state.current && state.skinned) playAnim(state.current);
+});
+$('anFile').addEventListener('change', async e => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  const entry = { name: f.name.replace(/\.fbx$/i, ''), buffer: await f.arrayBuffer() };
+  state.anims.push(entry); fillAnims();
+  $('anSel').value = String(state.anims.length - 1);
+  e.target.value = '';
+  if (state.skinned) playAnim(entry); else status('Calcule d\'abord les poids (étape 6).', 'warn');
+});
 
 function clearSkin() {
   if (!state.skinned) return;
-  state.skinned = null;
+  stopAnim();
+  state.skinned = null; setAnimUI(false);
   $('wPose').value = 0; $('wPose').disabled = true;
   $('wInfo').textContent = 'Repères modifiés : recalcule les poids.';
   render(); drawMarkers(); drawSkeleton();
@@ -121,7 +196,7 @@ $('wBuild').addEventListener('click', async () => {
   status('Chargement des poids de Kidas…');
   await tick();
   try {
-    if (!state.kskin) state.kskin = await loadSkin('assets/kidas_skin.bin?v=5', state.rig.skinN);
+    if (!state.kskin) state.kskin = await loadSkin('assets/kidas_skin.bin?v=6', state.rig.skinN);
     const fitRes = fitSkeleton(state.rig, state.lm, state.shoulder);
     if (!fitRes) throw new Error('Repères incomplets.');
     status('Transfert des poids…');
@@ -134,7 +209,9 @@ $('wBuild').addEventListener('click', async () => {
     geom.setAttribute('skinWeight', new THREE.Float32BufferAttribute(res.skinWeight, 4));
     const sk = buildSkinned(state.rig, fitRes.pos, geom, state.src.material);
     sk.mesh.name = state.src.name;
+    stopAnim();
     state.skinned = sk;
+    setAnimUI(true);
     viewer.setObject(sk.mesh);
     viewer.setSkeletonVisible(false);
     viewer.setMarkers([]);
@@ -149,6 +226,7 @@ $('wBuild').addEventListener('click', async () => {
 });
 
 $('wPose').addEventListener('input', () => {
+  if (state.mixer) { stopAnim(); $('anSel').value = ''; }
   if (state.skinned) testPose(state.skinned.bones, state.rig, +$('wPose').value / 100);
 });
 
@@ -168,7 +246,7 @@ for (const id of SL) $(id).addEventListener('input', () => { if (state.lm) readS
 $('lmReset').addEventListener('click', () => { if (state.base) { clearSkin(); detect(); } });
 
 async function prepare() {
-  state.skinned = null; $('wPose').disabled = true; $('wPose').value = 0; $('wInfo').textContent = '';
+  stopAnim(); state.skinned = null; setAnimUI(false); $('wPose').disabled = true; $('wPose').value = 0; $('wInfo').textContent = '';
   const s = state.src;
   const pos = Float32Array.from(s.pos);
   orient(pos, $('up').value, false);
@@ -226,7 +304,7 @@ $('reduce').addEventListener('click', async () => {
   try {
     const r = await simplify(state.base, target);
     state.work = { pos: r.pos, uv: r.uv, index: r.index };
-    state.skinned = null; $('wPose').disabled = true; $('wPose').value = 0; $('wInfo').textContent = '';
+    stopAnim(); state.skinned = null; setAnimUI(false); $('wPose').disabled = true; $('wPose').value = 0; $('wInfo').textContent = '';
     render();
     drawMarkers();
     drawSkeleton();
@@ -265,6 +343,8 @@ $('download').addEventListener('click', () => {
   const w = state.work;
   let mesh;
   if (state.skinned) {
+    stopAnim();
+    $('anSel').value = '';
     testPose(state.skinned.bones, state.rig, 0);
     $('wPose').value = 0;
     mesh = state.skinned.mesh;
