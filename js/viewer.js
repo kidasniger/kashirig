@@ -33,6 +33,8 @@ export function createViewer(canvas) {
   scene.add(new THREE.GridHelper(8, 16, 0x2a3140, 0x1b212c));
 
   let mesh = null, kidas = null, skel = null, wire = false;
+  const markers = new THREE.Group();
+  scene.add(markers);
 
   function resize() {
     const r = canvas.parentElement.getBoundingClientRect();
@@ -77,6 +79,29 @@ export function createViewer(canvas) {
       if (mesh) mesh.material.wireframe = v;
     },
     frame,
+    // items : [{ p:[x,y,z], color, ring }] ; line : suite de points reliés (axe du corps)
+    setMarkers(items, line) {
+      for (const c of [...markers.children]) {
+        markers.remove(c);
+        if (c.geometry) c.geometry.dispose();
+        if (c.material) c.material.dispose();
+      }
+      const add = o => { o.renderOrder = 999; o.material.depthTest = false; o.material.transparent = true; markers.add(o); };
+      for (const it of items) {
+        if (!it.p) continue;
+        const s = new THREE.Mesh(new THREE.SphereGeometry(0.022, 16, 12), new THREE.MeshBasicMaterial({ color: it.color }));
+        s.position.set(it.p[0], it.p[1], it.p[2]);
+        add(s);
+        if (it.ring) {
+          const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-0.3, it.p[1], it.p[2]), new THREE.Vector3(0.3, it.p[1], it.p[2])]);
+          add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: it.color, opacity: 0.8 })));
+        }
+      }
+      if (line && line.length > 1) {
+        const g = new THREE.BufferGeometry().setFromPoints(line.map(p => new THREE.Vector3(p[0], p[1], p[2])));
+        add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.5 })));
+      }
+    },
     async showKidas(url) {
       if (kidas) { kidas.visible = true; skel.visible = true; frame(); return this.kidasInfo; }
       const fbx = await new Promise((ok, ko) =>

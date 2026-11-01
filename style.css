@@ -46,3 +46,8 @@ select { min-height: 46px; border-radius: 10px; border: 1px solid var(--line); b
 .chip.ok { background: rgba(63, 185, 80, .15); color: var(--ok); }
 .chip.bad { background: rgba(255, 107, 107, .15); color: var(--bad); }
 input[type="range"] { width: 100%; margin: 6px 0 14px; accent-color: var(--accent); }
+.sl { display: grid; gap: 2px; margin-top: 8px; font-size: 13px; }
+.sl span { display: flex; justify-content: space-between; color: var(--muted); }
+.sl b { color: var(--text); font-weight: 600; }
+.sl input[type="range"] { margin: 4px 0 6px; }
+#lmReset { margin-top: 4px; }

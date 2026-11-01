@@ -4,6 +4,7 @@ import { importFiles } from './loader.js';
 import { createViewer, buildGeometry } from './viewer.js';
 import { orient, autoYaw, normalize, weld, smoothNormals, checkTPose } from './geom.js';
 import { simplify } from './simplify.js';
+import { detectLandmarks } from './landmarks.js';
 
 window.__booted = true;
 
@@ -11,7 +12,7 @@ const $ = id => document.getElementById(id);
 const fmt = n => Math.round(n).toLocaleString('fr-FR');
 const tick = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
 
-const state = { src: null, base: null, work: null, flip: false, rawHeight: 0, tpose: null };
+const state = { src: null, base: null, work: null, flip: false, rawHeight: 0, tpose: null, lm: null };
 const viewer = createViewer($('view'));
 
 function status(msg, kind = 'info') {
@@ -51,6 +52,49 @@ function render() {
     (t.hint ? '<p class="warn">' + t.hint + '</p>' : '');
 }
 
+const SL = ['lmHead', 'lmNeck', 'lmCrotch', 'lmHandX', 'lmHandY'];
+const COL = { head: 0xff6b6b, neck: 0xe3b341, crotch: 0x4cc2a0, foot: 0x58a6ff, hand: 0xd2a8ff };
+
+function drawMarkers() {
+  const p = state.lm && state.lm.pts;
+  if (!p) { viewer.setMarkers([]); return; }
+  viewer.setMarkers([
+    { p: p.headTop, color: COL.head, ring: true },
+    { p: p.neck, color: COL.neck, ring: true },
+    { p: p.crotch, color: COL.crotch, ring: true },
+    { p: p.footP, color: COL.foot }, { p: p.footN, color: COL.foot },
+    { p: p.handP, color: COL.hand }, { p: p.handN, color: COL.hand },
+  ], [p.headTop, p.neck, p.crotch]);
+}
+
+function syncSliders() {
+  const p = state.lm.pts;
+  const set = (id, v) => { $(id).value = (v * 100).toFixed(1); $(id + 'V').textContent = Math.round(v * 100) + ' cm'; };
+  set('lmHead', p.headTop[1]); set('lmNeck', p.neck[1]); set('lmCrotch', p.crotch[1]);
+  if (p.handP && p.handN) { set('lmHandX', (Math.abs(p.handP[0]) + Math.abs(p.handN[0])) / 2); set('lmHandY', (p.handP[1] + p.handN[1]) / 2); }
+}
+
+function readSliders() {
+  const p = state.lm.pts, v = id => +$(id).value / 100;
+  p.headTop[1] = v('lmHead'); p.neck[1] = v('lmNeck'); p.crotch[1] = v('lmCrotch');
+  for (const [h, s] of [[p.handP, 1], [p.handN, -1]]) if (h) { h[0] = s * v('lmHandX'); h[1] = v('lmHandY'); }
+  for (const id of SL) $(id + 'V').textContent = Math.round(+$(id).value) + ' cm';
+  drawMarkers();
+}
+
+function detect() {
+  state.lm = detectLandmarks(state.base.pos);
+  state.lmAuto = JSON.parse(JSON.stringify(state.lm.pts));
+  syncSliders();
+  drawMarkers();
+  const l = state.lm;
+  $('lmInfo').textContent = 'Détection automatique' + (l.crotchFound ? '' : ' (entrejambe estimé, à vérifier)') +
+    ' · face vers ' + (l.front > 0 ? '+Z' : '−Z') + '.';
+}
+
+for (const id of SL) $(id).addEventListener('input', () => { if (state.lm) readSliders(); });
+$('lmReset').addEventListener('click', () => { if (state.base) detect(); });
+
 async function prepare() {
   const s = state.src;
   const pos = Float32Array.from(s.pos);
@@ -63,6 +107,7 @@ async function prepare() {
   state.work = base;
   state.tpose = checkTPose(base.pos);
   render();
+  detect();
   lock(false);
   const t = state.tpose;
   status(t.ok ? 'Modèle prêt (' + fmt(base.index.length / 3) + ' triangles, T-pose OK' + (state.yawed ? ', tourné de 90° automatiquement' : '') + ').'
