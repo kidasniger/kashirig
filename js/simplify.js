@@ -6,6 +6,8 @@ import { compact } from './geom.js?v=6';
 export async function simplify(data, targetTris) {
   await MeshoptSimplifier.ready;
   if (MeshoptSimplifier.supported === false) throw new Error('WebAssembly non supporté par ce navigateur.');
+  // simplifyWithAttributes est expérimental dans meshoptimizer : il faut activer ce drapeau.
+  MeshoptSimplifier.useExperimentalFeatures = true;
   const before = data.index.length / 3;
   if (before <= targetTris) return { ...data, before, after: before, usedUV: !!data.uv };
 

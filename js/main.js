@@ -3,7 +3,7 @@ import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { importFiles } from './loader.js?v=6';
 import { createViewer, buildGeometry } from './viewer.js?v=7';
 import { orient, autoYaw, normalize, weld, smoothNormals, checkTPose } from './geom.js?v=6';
-import { simplify } from './simplify.js?v=7';
+import { simplify } from './simplify.js?v=8';
 import { detectLandmarks } from './landmarks.js?v=6';
 import { loadRig, fitSkeleton } from './skeleton.js?v=6';
 import { loadSkin, transferWeights } from './weights.js?v=6';
