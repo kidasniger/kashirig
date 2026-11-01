@@ -15,7 +15,7 @@ on:
         default: "40000"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   rig:
@@ -24,6 +24,13 @@ jobs:
       JOB: ${{ inputs.job }}
       NAME: ${{ inputs.name }}
       TRIS: ${{ inputs.triangles }}
+      B2_BUCKET: kashirig-jobs
+      B2_ENDPOINT: https://s3.us-east-005.backblazeb2.com
+      AWS_ACCESS_KEY_ID: ${{ secrets.B2_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.B2_APP_KEY }}
+      AWS_DEFAULT_REGION: us-east-005
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
     steps:
       - name: Verifier les entrees
         shell: bash
@@ -31,6 +38,7 @@ jobs:
           [[ "$JOB" =~ ^[a-z0-9]{8,32}$ ]] || { echo "Identifiant invalide"; exit 1; }
           [[ "$NAME" =~ ^[A-Za-z0-9_-]{1,40}$ ]] || { echo "Nom invalide"; exit 1; }
           [[ "$TRIS" =~ ^[0-9]{4,6}$ ]] || { echo "Triangles invalides"; exit 1; }
+          [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ] || { echo "Secrets B2 manquants"; exit 1; }
 
       - name: Recuperer le code
         uses: actions/checkout@v4
@@ -38,10 +46,8 @@ jobs:
       - name: Recuperer le GLB
         shell: bash
         run: |
-          git fetch origin "job-$JOB"
-          git checkout "origin/job-$JOB" -- "jobs/$JOB"
           mkdir -p work output
-          cat jobs/$JOB/*.part > work/input.glb
+          aws s3 cp "s3://$B2_BUCKET/jobs/$JOB/input.glb" work/input.glb --endpoint-url "$B2_ENDPOINT"
           test -s work/input.glb
 
       - name: Installer Blender
@@ -57,14 +63,11 @@ jobs:
           test -s "output/${NAME}_rigged.fbx"
 
       - name: Publier le FBX
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ inputs.name }}_rigged
-          path: output/${{ inputs.name }}_rigged.fbx
-          retention-days: 1
-          if-no-files-found: error
+        shell: bash
+        run: |
+          aws s3 cp "output/${NAME}_rigged.fbx" "s3://$B2_BUCKET/jobs/$JOB/output.fbx" --endpoint-url "$B2_ENDPOINT"
 
       - name: Supprimer le GLB source
         if: always()
         shell: bash
-        run: git push origin --delete "job-$JOB" || true
+        run: aws s3 rm "s3://$B2_BUCKET/jobs/$JOB/input.glb" --endpoint-url "$B2_ENDPOINT" || true

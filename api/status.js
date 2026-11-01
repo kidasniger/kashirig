@@ -1,4 +1,5 @@
-const { gh, guard, findRun, JOB_RE } = require('./_gh');
+const { guard, findRun, gh, JOB_RE } = require('./_gh');
+const { exists } = require('./_b2');
 
 // Poids des étapes du workflow pour calculer le pourcentage.
 const WEIGHTS = { 'Installer Blender': 20, 'Lancer le rig': 50 };
@@ -18,10 +19,10 @@ module.exports = async (req, res) => {
       if (run.conclusion !== 'success') {
         return res.status(200).json({ state: 'error', percent: 100, message: 'La conversion a échoué.' });
       }
-      const a = await gh('/actions/runs/' + run.id + '/artifacts');
-      const art = a.ok ? ((await a.json()).artifacts || []).find(x => x.name.endsWith('_rigged')) : null;
-      if (!art) return res.status(200).json({ state: 'error', percent: 100, message: 'Fichier introuvable.' });
-      return res.status(200).json({ state: 'done', percent: 100, artifact: art.id });
+      if (!(await exists('jobs/' + job + '/output.fbx'))) {
+        return res.status(200).json({ state: 'error', percent: 100, message: 'Fichier introuvable.' });
+      }
+      return res.status(200).json({ state: 'done', percent: 100 });
     }
 
     const jr = await gh('/actions/runs/' + run.id + '/jobs');

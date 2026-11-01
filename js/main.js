@@ -9,7 +9,7 @@ import { loadRig, fitSkeleton } from './skeleton.js?v=6';
 import { loadSkin, transferWeights } from './weights.js?v=6';
 import { buildSkinned, testPose } from './skinned.js?v=6';
 import { loadClip, makeClip } from './anim.js?v=6';
-import { exportFbx } from './fbx.js?v=8';
+import { exportFbx } from './fbx.js?v=9';
 
 window.__booted = true;
 
@@ -374,7 +374,7 @@ $('download').addEventListener('click', () => {
   }, { binary: true });
 });
 
-// ---- Export FBX via GitHub Actions (intermédiaire Vercel) ----
+// ---- Export FBX via GitHub Actions + stockage Backblaze B2 (intermédiaire Vercel) ----
 const prog = { shown: 0, target: 0, label: '', raf: 0 };
 function progLoop() {
   prog.shown += Math.max(0.05, (prog.target - prog.shown) * 0.05);
@@ -419,7 +419,7 @@ $('fbx').addEventListener('click', async () => {
     document.body.appendChild(a);
     a.click();
     a.remove();
-    status('FBX prêt : le zip téléchargé contient rigged.fbx.', 'ok');
+    status('FBX prêt : le fichier est téléchargé.', 'ok');
   } catch (err) {
     state.src.material.wireframe = wasWire;
     status('Erreur FBX : ' + (err.message || err), 'err');
