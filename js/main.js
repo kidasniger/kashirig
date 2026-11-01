@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { importFiles } from './loader.js?v=6';
-import { createViewer, buildGeometry } from './viewer.js?v=6';
+import { createViewer, buildGeometry } from './viewer.js?v=7';
 import { orient, autoYaw, normalize, weld, smoothNormals, checkTPose } from './geom.js?v=6';
 import { simplify } from './simplify.js?v=6';
 import { detectLandmarks } from './landmarks.js?v=6';
@@ -376,13 +376,18 @@ $('download').addEventListener('click', () => {
 
 // ---- Export FBX via GitHub Actions + stockage Backblaze B2 (intermédiaire Vercel) ----
 const prog = { shown: 0, target: 0, label: '', raf: 0 };
+function progPaint() {
+  $('fbxFill').style.width = prog.shown + '%';
+  $('fbxInfo').textContent = prog.label + ' ' + Math.floor(prog.shown) + ' %';
+}
 function progLoop() {
   prog.shown += Math.max(0.05, (prog.target - prog.shown) * 0.05);
   if (prog.shown > prog.target) prog.shown = prog.target;
-  $('fbxFill').style.width = prog.shown + '%';
-  $('fbxInfo').textContent = prog.label + ' ' + Math.floor(prog.shown) + ' %';
+  progPaint();
   prog.raf = requestAnimationFrame(progLoop);
 }
+// requestAnimationFrame s'arrête quand l'onglet passe en arrière-plan : on repeint à la main.
+document.addEventListener('visibilitychange', () => { if (!document.hidden) progPaint(); });
 
 // Nom du fichier : nom du modèle, sans extension ni caractères spéciaux.
 function fbxName() {
@@ -412,8 +417,10 @@ $('fbx').addEventListener('click', async () => {
     state.src.material.wireframe = wasWire;
     status('Export FBX en cours…');
     const url = await exportFbx(glb, Math.round(w.index.length / 3), fbxName(), (p, label) => { prog.target = p; prog.label = label; });
-    prog.target = 100; prog.label = 'Terminé';
-    await new Promise(r => setTimeout(r, 1200));
+    cancelAnimationFrame(prog.raf);
+    prog.shown = prog.target = 100; prog.label = 'Terminé';
+    progPaint();
+    await new Promise(r => setTimeout(r, 600));
     const a = document.createElement('a');
     a.href = url;
     document.body.appendChild(a);
@@ -422,6 +429,8 @@ $('fbx').addEventListener('click', async () => {
     status('FBX prêt : le fichier est téléchargé.', 'ok');
   } catch (err) {
     state.src.material.wireframe = wasWire;
+    cancelAnimationFrame(prog.raf);
+    prog.label = 'Échec'; progPaint();
     status('Erreur FBX : ' + (err.message || err), 'err');
   } finally {
     cancelAnimationFrame(prog.raf);

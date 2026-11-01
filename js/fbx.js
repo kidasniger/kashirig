@@ -19,6 +19,18 @@ async function call(url, body) {
   return j;
 }
 
+// Envoi direct vers le stockage, avec la progression réelle.
+function put(url, bytes, onFraction) {
+  return new Promise((ok, ko) => {
+    const x = new XMLHttpRequest();
+    x.open('PUT', url);
+    x.upload.onprogress = e => { if (e.lengthComputable) onFraction(e.loaded / e.total); };
+    x.onload = () => (x.status >= 200 && x.status < 300 ? ok() : ko(new Error('Envoi refusé (' + x.status + ').')));
+    x.onerror = () => ko(new Error('Envoi impossible (réseau ou autorisation).'));
+    x.send(bytes);
+  });
+}
+
 // onProgress(pourcentage 0-100, texte)
 export async function exportFbx(glb, triangles, name, onProgress) {
   const job = newId();
@@ -27,8 +39,7 @@ export async function exportFbx(glb, triangles, name, onProgress) {
 
   onProgress(3, 'Envoi');
   const { url } = await call('/api/upload', { job, size: bytes.length });
-  const put = await fetch(url, { method: 'PUT', body: bytes });
-  if (!put.ok) throw new Error('Envoi refusé (' + put.status + ').');
+  await put(url, bytes, f => onProgress(3 + 17 * f, 'Envoi'));
 
   onProgress(20, 'Lancement');
   await call('/api/start', { job, triangles, name });

@@ -1,16 +1,24 @@
 :root {
-  color-scheme: dark;
+  color-scheme: dark light;
   --bg: #0e1116; --card: #161b22; --line: #262d38; --text: #e6edf3; --muted: #8b98a9;
-  --accent: #4cc2a0; --accent-ink: #06231b; --ok: #3fb950; --bad: #ff6b6b; --warn: #e3b341;
+  --accent: #4cc2a0; --accent-ink: #06231b; --accent-2: #7be0c3; --ok: #3fb950; --bad: #ff6b6b; --warn: #e3b341;
+  --field: #1d2430; --stage: #0b0e13; --tool: rgba(22, 27, 34, .85);
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f3f5f8; --card: #ffffff; --line: #dbe0e8; --text: #1b2330; --muted: #5b6778;
+    --accent: #168a6b; --accent-ink: #ffffff; --accent-2: #5fcaa8; --ok: #1a7f37; --bad: #cf222e; --warn: #8a5a00;
+    --field: #eef1f5; --stage: #e8ecf2; --tool: rgba(255, 255, 255, .88);
+  }
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
   font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 .app { display: flex; flex-direction: column; height: 100dvh; }
-.stage { position: relative; flex: 0 0 44dvh; min-height: 220px; background: #0b0e13; }
+.stage { position: relative; flex: 0 0 44dvh; min-height: 220px; background: var(--stage); }
 #view { display: block; width: 100%; height: 100%; touch-action: none; }
 .tools { position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; }
-.tool { background: rgba(22, 27, 34, .85); color: var(--text); border: 1px solid var(--line);
+.tool { background: var(--tool); color: var(--text); border: 1px solid var(--line);
   border-radius: 999px; padding: 8px 14px; font: inherit; font-size: 13px; }
 .tool[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 
@@ -30,17 +38,17 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 code { background: var(--line); padding: 1px 5px; border-radius: 4px; }
 
 .btn { display: flex; align-items: center; justify-content: center; min-height: 46px; width: 100%;
-  padding: 0 16px; border-radius: 10px; border: 1px solid var(--line); background: #1d2430; color: var(--text);
+  padding: 0 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--field); color: var(--text);
   font: inherit; font-weight: 600; cursor: pointer; text-align: center; }
 #skToggle[aria-pressed="false"] { opacity: .6; }
 .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .btn:disabled { opacity: .4; cursor: not-allowed; }
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end; margin-top: 8px; }
 .sel { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
-select { min-height: 46px; border-radius: 10px; border: 1px solid var(--line); background: #1d2430; color: var(--text);
+select { min-height: 46px; border-radius: 10px; border: 1px solid var(--line); background: var(--field); color: var(--text);
   font: inherit; padding: 0 10px; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
-.grid div { background: #1d2430; border-radius: 10px; padding: 8px 10px; display: grid; gap: 2px; }
+.grid div { background: var(--field); border-radius: 10px; padding: 8px 10px; display: grid; gap: 2px; }
 .grid span { color: var(--muted); font-size: 11px; }
 .grid b { font-size: 14px; }
 .chip { display: inline-block; padding: 5px 12px; border-radius: 999px; font-weight: 600; font-size: 13px; }
@@ -54,6 +62,6 @@ input[type="range"] { width: 100%; margin: 6px 0 14px; accent-color: var(--accen
 #lmReset { margin-top: 4px; }
 
 .pbar { height: 12px; border-radius: 999px; background: var(--line); overflow: hidden; margin-top: 12px; }
-.pfill { height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--accent), #7be0c3, var(--accent)); background-size: 200% 100%;
+.pfill { height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent)); background-size: 200% 100%;
   animation: pshine 1.4s linear infinite; transition: width .4s ease; }
 @keyframes pshine { from { background-position: 200% 0; } to { background-position: -200% 0; } }

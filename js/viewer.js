@@ -19,24 +19,51 @@ export function createViewer(canvas) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0e1116);
+  // Thème clair / sombre automatique (réglage du téléphone).
+  const THEMES = {
+    dark: { bg: 0x0e1116, ground: 0x303848, grid1: 0x2a3140, grid2: 0x1b212c, ink: 0xffffff, bone: 0x39d0ff },
+    light: { bg: 0xe8ecf2, ground: 0x9aa4b5, grid1: 0xaab4c3, grid2: 0xcfd6e0, ink: 0x1b2330, bone: 0x0a7ea4 },
+  };
+  const mq = window.matchMedia('(prefers-color-scheme: light)');
+  let theme = mq.matches ? THEMES.light : THEMES.dark;
+  scene.background = new THREE.Color(theme.bg);
   const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 100);
   camera.position.set(0, 1.2, 4.5);
   const controls = new OrbitControls(camera, canvas);
   controls.target.set(0, 0.9, 0);
   controls.enableDamping = true;
 
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x303848, 1.1));
+  const hemi = new THREE.HemisphereLight(0xffffff, theme.ground, 1.1);
+  scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xffffff, 1.8);
   sun.position.set(2, 4, 3);
   scene.add(sun);
-  scene.add(new THREE.GridHelper(8, 16, 0x2a3140, 0x1b212c));
+  let grid = new THREE.GridHelper(8, 16, theme.grid1, theme.grid2);
+  scene.add(grid);
 
   let mesh = null, kidas = null, skel = null, wire = false;
   const markers = new THREE.Group();
   scene.add(markers);
   const skelGroup = new THREE.Group();
   scene.add(skelGroup);
+
+  function applyTheme() {
+    theme = mq.matches ? THEMES.light : THEMES.dark;
+    scene.background.set(theme.bg);
+    hemi.groundColor.set(theme.ground);
+    scene.remove(grid);
+    grid.geometry.dispose(); grid.material.dispose();
+    grid = new THREE.GridHelper(8, 16, theme.grid1, theme.grid2);
+    scene.add(grid);
+    for (const g of [markers, skelGroup]) {
+      for (const c of g.children) {
+        if (c.userData.ink) c.material.color.set(theme.ink);
+        if (c.userData.bone) c.material.color.set(theme.bone);
+      }
+    }
+  }
+  if (mq.addEventListener) mq.addEventListener('change', applyTheme);
+  else if (mq.addListener) mq.addListener(applyTheme);
 
   function resize() {
     const r = canvas.parentElement.getBoundingClientRect();
@@ -112,7 +139,9 @@ export function createViewer(canvas) {
       }
       if (line && line.length > 1) {
         const g = new THREE.BufferGeometry().setFromPoints(line.map(p => new THREE.Vector3(p[0], p[1], p[2])));
-        add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.5 })));
+        const axis = new THREE.Line(g, new THREE.LineBasicMaterial({ color: theme.ink, opacity: 0.5 }));
+        axis.userData.ink = true;
+        add(axis);
       }
     },
     // Squelette recalé : rig.bones (parent p) + positions (Float32Array x,y,z par os).
@@ -128,10 +157,12 @@ export function createViewer(canvas) {
       });
       const lg = new THREE.BufferGeometry();
       lg.setAttribute('position', new THREE.Float32BufferAttribute(seg, 3));
-      const lines = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x39d0ff, depthTest: false, transparent: true }));
+      const lines = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: theme.bone, depthTest: false, transparent: true }));
       const pg = new THREE.BufferGeometry();
       pg.setAttribute('position', new THREE.Float32BufferAttribute(Array.from(pos), 3));
-      const pts = new THREE.Points(pg, new THREE.PointsMaterial({ color: 0xffffff, size: 4, sizeAttenuation: false, depthTest: false, transparent: true }));
+      const pts = new THREE.Points(pg, new THREE.PointsMaterial({ color: theme.ink, size: 4, sizeAttenuation: false, depthTest: false, transparent: true }));
+      lines.userData.bone = true;
+      pts.userData.ink = true;
       lines.renderOrder = pts.renderOrder = 998;
       skelGroup.add(lines, pts);
     },
