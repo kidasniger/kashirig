@@ -41,7 +41,7 @@ export function createViewer(canvas) {
   let grid = new THREE.GridHelper(8, 16, theme.grid1, theme.grid2);
   scene.add(grid);
 
-  let mesh = null, kidas = null, skel = null, wire = false;
+  let mesh = null, kidas = null, skel = null, wire = false, boneHelper = null;
   const markers = new THREE.Group();
   scene.add(markers);
   const skelGroup = new THREE.Group();
@@ -75,6 +75,14 @@ export function createViewer(canvas) {
   new ResizeObserver(resize).observe(canvas.parentElement);
   resize();
 
+  // Squelette réel du modèle riggé : il suit l'animation (os du SkinnedMesh).
+  function clearBones() {
+    if (!boneHelper) return;
+    scene.remove(boneHelper);
+    boneHelper.geometry.dispose(); boneHelper.material.dispose();
+    boneHelper = null;
+  }
+
   function frame() {
     const box = new THREE.Box3();
     if (mesh) box.expandByObject(mesh);
@@ -101,6 +109,7 @@ export function createViewer(canvas) {
   return {
     setMesh(geometry, material) {
       const first = !mesh;
+      clearBones();
       if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); }
       material.wireframe = wire;
       mesh = new THREE.Mesh(geometry, material);
@@ -110,9 +119,17 @@ export function createViewer(canvas) {
     setTick(fn) { tickFn = fn; },
     // Remplace l'objet affiché (ex. un SkinnedMesh) sans le recréer.
     setObject(obj) {
+      clearBones();
       if (mesh) { scene.remove(mesh); if (mesh.geometry) mesh.geometry.dispose(); }
       mesh = obj;
       scene.add(obj);
+      if (obj.isSkinnedMesh) {
+        obj.updateMatrixWorld(true);
+        boneHelper = new THREE.SkeletonHelper(obj);
+        boneHelper.material.depthTest = false;
+        boneHelper.frustumCulled = false;
+        scene.add(boneHelper);
+      }
     },
     setWireframe(v) {
       wire = v;
