@@ -7,6 +7,9 @@ on:
       job:
         description: "Identifiant du job (lettres minuscules et chiffres)"
         required: true
+      name:
+        description: "Nom du modele (lettres, chiffres, _ et -)"
+        default: "model"
       triangles:
         description: "Nombre de triangles cible"
         default: "40000"
@@ -19,12 +22,14 @@ jobs:
     runs-on: ubuntu-latest
     env:
       JOB: ${{ inputs.job }}
+      NAME: ${{ inputs.name }}
       TRIS: ${{ inputs.triangles }}
     steps:
       - name: Verifier les entrees
         shell: bash
         run: |
           [[ "$JOB" =~ ^[a-z0-9]{8,32}$ ]] || { echo "Identifiant invalide"; exit 1; }
+          [[ "$NAME" =~ ^[A-Za-z0-9_-]{1,40}$ ]] || { echo "Nom invalide"; exit 1; }
           [[ "$TRIS" =~ ^[0-9]{4,6}$ ]] || { echo "Triangles invalides"; exit 1; }
 
       - name: Recuperer le code
@@ -48,14 +53,14 @@ jobs:
         shell: bash
         run: |
           blender -b --python-exit-code 1 -P blender/rig_luw.py -- \
-            work/input.glb assets/kidas.fbx output/rigged.fbx "$TRIS" 2>&1 | tee work/log.txt
-          test -s output/rigged.fbx
+            work/input.glb assets/kidas.fbx "output/${NAME}_rigged.fbx" "$TRIS" 2>&1 | tee work/log.txt
+          test -s "output/${NAME}_rigged.fbx"
 
       - name: Publier le FBX
         uses: actions/upload-artifact@v4
         with:
-          name: fbx-${{ inputs.job }}
-          path: output/rigged.fbx
+          name: ${{ inputs.name }}_rigged
+          path: output/${{ inputs.name }}_rigged.fbx
           retention-days: 1
           if-no-files-found: error
 

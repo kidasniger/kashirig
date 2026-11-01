@@ -26,7 +26,7 @@ async function call(url, body) {
 }
 
 // onProgress(pourcentage 0-100, texte)
-export async function exportFbx(glb, triangles, onProgress) {
+export async function exportFbx(glb, triangles, name, onProgress) {
   const job = newId();
   const bytes = new Uint8Array(glb);
   const parts = Math.ceil(bytes.length / CHUNK);
@@ -37,7 +37,7 @@ export async function exportFbx(glb, triangles, onProgress) {
     await call('/api/upload', { job, index: i, data: b64(bytes.subarray(i * CHUNK, (i + 1) * CHUNK)) });
   }
   onProgress(20, 'Lancement');
-  await call('/api/start', { job, triangles });
+  await call('/api/start', { job, triangles, name });
 
   const t0 = Date.now();
   for (;;) {

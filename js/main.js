@@ -9,7 +9,7 @@ import { loadRig, fitSkeleton } from './skeleton.js?v=6';
 import { loadSkin, transferWeights } from './weights.js?v=6';
 import { buildSkinned, testPose } from './skinned.js?v=6';
 import { loadClip, makeClip } from './anim.js?v=6';
-import { exportFbx } from './fbx.js?v=7';
+import { exportFbx } from './fbx.js?v=8';
 
 window.__booted = true;
 
@@ -384,6 +384,13 @@ function progLoop() {
   prog.raf = requestAnimationFrame(progLoop);
 }
 
+// Nom du fichier : nom du modèle, sans extension ni caractères spéciaux.
+function fbxName() {
+  const n = String((state.src && state.src.name) || 'model').replace(/\.[A-Za-z0-9]{2,4}$/, '')
+    .replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
+  return n || 'model';
+}
+
 $('fbx').addEventListener('click', async () => {
   if (!state.work) return;
   const w = state.work;
@@ -404,7 +411,7 @@ $('fbx').addEventListener('click', async () => {
     const glb = await new Promise((ok, ko) => new GLTFExporter().parse(mesh, ok, ko, { binary: true }));
     state.src.material.wireframe = wasWire;
     status('Export FBX en cours…');
-    const url = await exportFbx(glb, Math.round(w.index.length / 3), (p, label) => { prog.target = p; prog.label = label; });
+    const url = await exportFbx(glb, Math.round(w.index.length / 3), fbxName(), (p, label) => { prog.target = p; prog.label = label; });
     prog.target = 100; prog.label = 'Terminé';
     await new Promise(r => setTimeout(r, 1200));
     const a = document.createElement('a');

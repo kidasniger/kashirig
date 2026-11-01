@@ -1,4 +1,4 @@
-const { gh, guard, JOB_RE } = require('./_gh');
+const { gh, guard, findRun, JOB_RE } = require('./_gh');
 
 // Redirige vers le téléchargement de l'artefact (zip contenant rigged.fbx).
 module.exports = async (req, res) => {
@@ -10,7 +10,12 @@ module.exports = async (req, res) => {
 
     const meta = await gh('/actions/artifacts/' + id);
     if (!meta.ok) return res.status(404).json({ error: 'Fichier introuvable' });
-    if ((await meta.json()).name !== 'fbx-' + job) return res.status(403).json({ error: 'Fichier refusé' });
+    const info = await meta.json();
+    const found = await findRun(job);
+    if (found.error || !found.run) return res.status(404).json({ error: 'Job introuvable' });
+    if (!info.name.endsWith('_rigged') || !info.workflow_run || info.workflow_run.id !== found.run.id) {
+      return res.status(403).json({ error: 'Fichier refusé' });
+    }
 
     const z = await gh('/actions/artifacts/' + id + '/zip', { redirect: 'manual' });
     const loc = z.headers.get('location');

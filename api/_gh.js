@@ -15,6 +15,14 @@ function gh(path, init = {}) {
   });
 }
 
+// Retrouve le run du workflow pour un job donné.
+async function findRun(job) {
+  const list = await gh('/actions/workflows/rig.yml/runs?event=workflow_dispatch&per_page=30');
+  if (!list.ok) return { error: true };
+  const runs = (await list.json()).workflow_runs || [];
+  return { run: runs.find(r => r.display_title === 'rig ' + job) || null };
+}
+
 function guard(req, res, method) {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== method) {
@@ -29,4 +37,6 @@ function guard(req, res, method) {
   return true;
 }
 
-module.exports = { gh, guard, JOB_RE, REPO };
+const NAME_RE = /^[A-Za-z0-9_-]{1,40}$/;
+
+module.exports = { gh, guard, findRun, JOB_RE, NAME_RE, REPO };
